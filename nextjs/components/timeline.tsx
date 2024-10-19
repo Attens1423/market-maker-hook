@@ -1,7 +1,8 @@
 import React, { useState } from "react";
+import Image from "next/image";
+import { Card } from "@/components/ui/card";
 import { Timeline } from "@/components/ui/timeline";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { atomDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { TypeAnimation } from "react-type-animation";
 
 const code_snippet = `uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(curTick);
@@ -68,10 +69,18 @@ export function TimelineDemo() {
                 <TypeAnimation sequence={["2423.80 USDC/ETH", 500]} wrapper="span" cursor={false} />
               )}
             </p>
-            <div className="max-w-2xl overflow-x-auto">
-              <SyntaxHighlighter language="solidity" style={atomDark}>
-                {code_snippet}
-              </SyntaxHighlighter>
+            <div className="relative max-w-2xl rounded-lg mt-16">
+              <Card className="z-10 translate-y-12">
+                <SyntaxHighlighter
+                  language="solidity"
+                  customStyle={{ fontSize: "12px", borderRadius: "10px", margin: 0 }}
+                >
+                  {code_snippet}
+                </SyntaxHighlighter>
+              </Card>
+              <div className="z-0 absolute top-0 left-6 rotate-6">
+                <Image src="/assets/liquidity.png" alt="Liquidity" width={600} height={300} className="rounded-lg" />
+              </div>
             </div>
           </div>
         </div>

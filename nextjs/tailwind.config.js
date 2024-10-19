@@ -181,6 +181,7 @@ module.exports = {
   },
   theme: {
     // Extend Tailwind classes (e.g. font-bai-jamjuree, animate-grow)
+    plugins: [addVariablesForColors],
     extend: {
       fontFamily: {
         uniswap: ["UniswapFont", "sans-serif"],
@@ -210,3 +211,12 @@ module.exports = {
     },
   },
 };
+
+function addVariablesForColors({ addBase, theme }: any) {
+  let allColors = flattenColorPalette(theme("colors"));
+  let newVars = Object.fromEntries(Object.entries(allColors).map(([key, val]) => [`--${key}`, val]));
+
+  addBase({
+    ":root": newVars,
+  });
+}
