@@ -5,7 +5,7 @@ import { Timeline } from "@/components/ui/timeline";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { TypeAnimation } from "react-type-animation";
 
-const code_snippet = `uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(curTick);
+const quote_code_snippet = `uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(curTick);
 
 if(zeroForOne) {
   uint256 tmp1 = fromAmount * uint256(sqrtPriceX96) / Q96 *uint256(sqrtPriceX96) / Q96- toAmount;
@@ -16,6 +16,15 @@ if(zeroForOne) {
   uint256 tmp2 = fromAmount * uint256(sqrtPriceX96) * toAmount / Q96;
   liquidity = uint128(tmp2 / tmp1);
 }
+`;
+
+const after_swap_code_snippet = `if (delta.amount0() > 0 && delta.amount1() < 0) {
+  priceDiff = int256(targetAmount + delta.amount1()) * 1e18 / targetAmount;
+}
+
+if (delta.amount0() < 0 && delta.amount1() > 0) {
+  priceDiff = int256(targetAmount + delta.amount0()) * 1e18 / targetAmount;
+}   
 `;
 
 export function TimelineDemo() {
@@ -30,7 +39,7 @@ export function TimelineDemo() {
           <div className="rounded-lg mb-8">
             <p className="font-mono text-pink-400 text-xs md:text-sm">$ Query the best price for a swap...</p>
             <p className="font-mono text-white text-xs md:text-sm mt-2">
-              <span className="text-pink-400">{">"} </span> {`Searching Liqudity: `}
+              <span className="text-pink-400">{">"} </span> {`Searching liqudity: `}
               <TypeAnimation
                 sequence={[
                   "Uniswap, Curve, SushiSwap, etc.",
@@ -85,7 +94,7 @@ export function TimelineDemo() {
                   language="solidity"
                   customStyle={{ fontSize: "12px", borderRadius: "10px", margin: 0 }}
                 >
-                  {code_snippet}
+                  {quote_code_snippet}
                 </SyntaxHighlighter>
               </Card>
               <div className="z-0 absolute top-0 left-6 rotate-6">
@@ -101,16 +110,20 @@ export function TimelineDemo() {
       content: (
         <div>
           <div className="rounded-lg p-4 mb-8">
-            <p className="font-mono text-pink-400 text-xs md:text-sm">$ Check wallet balance...</p>
+            <p className="font-mono text-pink-400 text-xs md:text-sm">$ Add liquidity to the pool...</p>
             <p className="font-mono text-white text-xs md:text-sm mt-2">
-              <span className="text-pink-400">{">"} </span> Connecting to wallet...
+              <span className="text-pink-400">{">"} </span> Before swap,{" "}
+              <span className="text-pink-400">remove liquidity</span> last left...
             </p>
             <p className="font-mono text-white text-xs md:text-sm mt-1">
-              <span className="text-pink-400">{">"} </span> Fetching balance...
+              <span className="text-pink-400">{">"} </span> Calc a new{" "}
+              <span className="text-pink-400">tickLower, tickUpper and slot0 tick</span> from quote
             </p>
-            <p className="font-mono text-white text-xs md:text-sm mt-1">
-              <span className="text-pink-400">{">"}</span> Balance: 1.5 ETH
-            </p>
+            <blockquote className="pt-2 text-gray-300 max-w-xl border-l-4 border-pink-400 pl-4 italic">
+              Optimizing liquidity provision by adjusting tick ranges to ensure 50% of the price range meets
+              single-sided trading needs, with dynamic corrections to maintain target prices within the optimal zone.
+            </blockquote>
+            <Image src="/assets/delta.png" alt="Liquidity" width={600} height={480} className="rounded-lg mt-8" />
           </div>
         </div>
       ),
@@ -121,14 +134,11 @@ export function TimelineDemo() {
         <div>
           <div className="rounded-lg p-4 mb-8">
             <p className="font-mono text-pink-400 text-xs md:text-sm">$ Execute swap...</p>
-            <p className="font-mono text-white text-xs md:text-sm mt-2">
-              <span className="text-pink-400">{">"} </span> Initiating transaction...
+            <p className="font-mono text-white text-xs md:text-sm mt-1">
+              <span className="text-pink-400">{">"} </span> Swap 2423.80 USDC to 1 ETH
             </p>
             <p className="font-mono text-white text-xs md:text-sm mt-1">
-              <span className="text-pink-400">{">"} </span> Confirming on blockchain...
-            </p>
-            <p className="font-mono text-white text-xs md:text-sm mt-1">
-              <span className="text-pink-400">{">"}</span> Swap successful!
+              <span className="text-pink-400">{">"}</span> 👏 Swap successful!
             </p>
           </div>
         </div>
@@ -136,6 +146,30 @@ export function TimelineDemo() {
     },
     {
       title: "After Swap",
+      content: (
+        <div>
+          <div className="rounded-lg p-4 mb-8">
+            <p className="font-mono text-pink-400 text-xs md:text-sm">$ Check the price diff...</p>
+            <p className="font-mono text-white text-xs md:text-sm mt-2">
+              <span className="text-pink-400">{">"} </span> Pool stats updated:{" "}
+            </p>
+            <blockquote className="pt-2 text-gray-300 max-w-xl border-l-4 border-pink-400 pl-4 italic mt-4">
+              Liquidity is now <span className="text-pink-400">`poolManager.getLiquidity(poolId)`</span>, current Tick
+              is <span className="text-pink-400">`poolManager.getTick(poolId)`</span>, and Delta amounts are{" "}
+              <span className="text-pink-400">`delta.amount0()`</span> and{" "}
+              <span className="text-pink-400">`delta.amount1()`</span>
+            </blockquote>
+          </div>
+          <Card className="z-10 max-w-2xl mt-2">
+            <SyntaxHighlighter language="solidity" customStyle={{ fontSize: "12px", borderRadius: "10px", margin: 0 }}>
+              {after_swap_code_snippet}
+            </SyntaxHighlighter>
+          </Card>
+        </div>
+      ),
+    },
+    {
+      title: "Before Remove Liquidity",
       content: (
         <div>
           <div className="rounded-lg p-4 mb-8">
@@ -150,6 +184,11 @@ export function TimelineDemo() {
               <span className="text-pink-400">{">"}</span> New balance: 100 USDC
             </p>
           </div>
+          <blockquote className="pt-2 text-gray-300 max-w-xl border-l-4 border-pink-400 pl-4 italic">
+            Optimizing liquidity provision by adjusting tick ranges to ensure 50% of the price range meets single-sided
+            trading needs, with dynamic corrections to maintain target prices within the optimal zone.
+          </blockquote>
+          <Image src="/assets/delta.png" alt="Liquidity" width={600} height={480} className="rounded-lg mt-8" />
         </div>
       ),
     },
