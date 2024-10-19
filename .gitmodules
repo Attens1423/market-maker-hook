@@ -5,4 +5,4 @@
 	branch = v1.2.0
 [submodule "contracts/lib/v4-core"]
 	path = contracts/lib/v4-core
-	url = https://github.com/uniswap/v4-core
+	url = https://github.com/Uniswap/v4-core
