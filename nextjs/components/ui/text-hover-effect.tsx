@@ -73,7 +73,7 @@ export const TextHoverEffect = ({ text, duration }: { text: string; duration?: n
         textAnchor="middle"
         dominantBaseline="middle"
         strokeWidth="0.3"
-        className="font-[helvetica] font-bold stroke-neutral-200 dark:stroke-neutral-800 fill-transparent text-5xl  "
+        className="font-[helvetica] font-bold stroke-neutral-200 dark:stroke-neutral-800 fill-transparent text-5xl"
         style={{ opacity: hovered ? 0.7 : 0 }}
       >
         {text}
@@ -84,7 +84,7 @@ export const TextHoverEffect = ({ text, duration }: { text: string; duration?: n
         textAnchor="middle"
         dominantBaseline="middle"
         strokeWidth="0.3"
-        className="font-[helvetica] font-bold fill-transparent text-5xl   stroke-neutral-200 dark:stroke-neutral-800"
+        className="font-[helvetica] font-bold fill-transparent text-5xl stroke-pink-400 dark:stroke-pink-400"
         initial={{ strokeDashoffset: 1000, strokeDasharray: 1000 }}
         animate={{
           strokeDashoffset: 0,

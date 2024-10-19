@@ -69,6 +69,16 @@ export function TimelineDemo() {
                 <TypeAnimation sequence={["2423.80 USDC/ETH", 500]} wrapper="span" cursor={false} />
               )}
             </p>
+            <p className="font-mono text-white text-xs md:text-sm mt-1">
+              <span className="text-pink-400">{">"}</span>
+              {` How to fill liquidity in `}
+              <span className="text-pink-400">Uniswap Tick</span>
+              {` from third party quote?`} <br />
+            </p>
+            <blockquote className="pt-2 text-gray-300 max-w-xl border-l-4 border-pink-400 pl-4 italic">
+              Mapping LP positions from various DEXs to Uniswap V4 ticks, ensuring precise alignment and optimal pricing
+              for seamless cross-platform liquidity provision.
+            </blockquote>
             <div className="relative max-w-2xl rounded-lg mt-16">
               <Card className="z-10 translate-y-12">
                 <SyntaxHighlighter
