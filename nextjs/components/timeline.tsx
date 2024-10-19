@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Timeline } from "@/components/ui/timeline";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { atomDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { TypeAnimation } from "react-type-animation";
 
 const code_snippet = `uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(curTick);
 
@@ -17,6 +18,9 @@ if(zeroForOne) {
 `;
 
 export function TimelineDemo() {
+  const [bestLiquidity, setBestLiquidity] = useState("");
+  const [bestPrice, setBestPrice] = useState("");
+
   const data = [
     {
       title: "Quote",
@@ -25,15 +29,46 @@ export function TimelineDemo() {
           <div className="rounded-lg mb-8">
             <p className="font-mono text-pink-400 text-xs md:text-sm">$ Query the best price for a swap...</p>
             <p className="font-mono text-white text-xs md:text-sm mt-2">
-              <span className="text-pink-400">{">"} </span> Searching DEX platforms...
+              <span className="text-pink-400">{">"} </span> {`Searching Liqudity: `}
+              <TypeAnimation
+                sequence={[
+                  "Uniswap, Curve, SushiSwap, etc.",
+                  200,
+                  "GSR, Wintermute, Amber Group, etc.",
+                  () => {
+                    setBestLiquidity("GSR");
+                  },
+                ]}
+                wrapper="span"
+                cursor={false}
+              />
             </p>
             <p className="font-mono text-white text-xs md:text-sm mt-1">
-              <span className="text-pink-400">{">"} </span> Comparing prices...
+              <span className="text-pink-400">{">"} </span>
+              {`Comparing prices: `}
+              {bestLiquidity === "GSR" && (
+                <TypeAnimation
+                  sequence={[
+                    "2424.50",
+                    200,
+                    "2424.50, 2425.75",
+                    200,
+                    "2424.50, 2425.75, 2423.80 USDC/ETH",
+                    200,
+                    () => setBestPrice("2423.80 USDC/ETH"),
+                  ]}
+                  wrapper="span"
+                  cursor={false}
+                />
+              )}
             </p>
             <p className="font-mono text-white text-xs md:text-sm mt-1">
-              <span className="text-pink-400">{">"}</span> Best price found!
+              <span className="text-pink-400">{">"}</span> {`Best price found: `}
+              {bestPrice === "2423.80 USDC/ETH" && (
+                <TypeAnimation sequence={["2423.80 USDC/ETH", 500]} wrapper="span" cursor={false} />
+              )}
             </p>
-            <div className="max-w-full overflow-x-auto">
+            <div className="max-w-2xl overflow-x-auto">
               <SyntaxHighlighter language="solidity" style={atomDark}>
                 {code_snippet}
               </SyntaxHighlighter>
@@ -101,7 +136,7 @@ export function TimelineDemo() {
     },
   ];
   return (
-    <div className="w-[56rem]">
+    <div className="w-[72rem]">
       <Timeline data={data} />
     </div>
   );
