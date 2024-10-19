@@ -95,8 +95,7 @@ module.exports = {
       },
     ],
   },
-  
-          
+
   daisyui: {
     themes: [
       {
@@ -184,7 +183,7 @@ module.exports = {
     // Extend Tailwind classes (e.g. font-bai-jamjuree, animate-grow)
     extend: {
       fontFamily: {
-        "bai-jamjuree": ["Bai Jamjuree", "sans-serif"],
+        uniswap: ["UniswapFont", "sans-serif"],
       },
       boxShadow: {
         center: "0 0 12px -2px rgb(0 0 0 / 0.05)",

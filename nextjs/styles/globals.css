@@ -2,6 +2,14 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+@font-face {
+  font-family: "UniswapFont";
+  src: url("/font/uniswap.ttf") format("ttf");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root,
 [data-theme] {
   background: none;
@@ -9,6 +17,7 @@
 
 body {
   min-height: 100vh;
+  font-family: "UniswapFont", sans-serif;
 }
 
 h1,
