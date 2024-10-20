@@ -6,7 +6,7 @@ import { TextHoverEffect } from "~~/components/ui/text-hover-effect";
 const Home: NextPage = () => {
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex flex-col items-center justify-center mt-36">
+      <div className="flex flex-col items-center justify-center mt-24">
         <GitHubButton
           href="https://github.com/Attens1423/market-maker-hook"
           data-color-scheme="no-preference: light; light: light; dark: dark;"
@@ -32,6 +32,7 @@ const Home: NextPage = () => {
           生态成为可能。
         </p>
         <p className="font-mono text-center text-pink-400 max-w-2xl">Aggregator // Order Limit // Tick Mapping</p>
+        <button className="btn btn-primary mt-8 w-40 font-mono italic">Swap</button>
       </div>
       <TimelineDemo />
 
