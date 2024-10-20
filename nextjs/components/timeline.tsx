@@ -168,30 +168,6 @@ export function TimelineDemo() {
         </div>
       ),
     },
-    {
-      title: "Before Remove Liquidity",
-      content: (
-        <div>
-          <div className="rounded-lg p-4 mb-8">
-            <p className="font-mono text-pink-400 text-xs md:text-sm">$ Verify new balance...</p>
-            <p className="font-mono text-white text-xs md:text-sm mt-2">
-              <span className="text-pink-400">{">"} </span> Updating wallet...
-            </p>
-            <p className="font-mono text-white text-xs md:text-sm mt-1">
-              <span className="text-pink-400">{">"} </span> Fetching new balance...
-            </p>
-            <p className="font-mono text-white text-xs md:text-sm mt-1">
-              <span className="text-pink-400">{">"}</span> New balance: 100 USDC
-            </p>
-          </div>
-          <blockquote className="pt-2 text-gray-300 max-w-xl border-l-4 border-pink-400 pl-4 italic">
-            Optimizing liquidity provision by adjusting tick ranges to ensure 50% of the price range meets single-sided
-            trading needs, with dynamic corrections to maintain target prices within the optimal zone.
-          </blockquote>
-          <Image src="/assets/delta.png" alt="Liquidity" width={600} height={480} className="rounded-lg mt-8" />
-        </div>
-      ),
-    },
   ];
   return (
     <div className="w-[72rem]">
