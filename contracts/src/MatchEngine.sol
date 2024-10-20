@@ -14,14 +14,29 @@ contract MatchEngine {
         mapping(address => uint256) priceSlots; // Price slot for each token
     }
 
+    struct PriceLevel {
+        uint256 price;
+        uint256 totalAmount;
+        address[] makers;
+    }
+
+    struct OrderBook {
+        mapping(uint256 => PriceLevel) levels;
+        uint256[] prices;
+    }
+
     // Mapping to store information for each maker
     mapping(address => MakerInfo) private makerInfos;
 
-    // Define Deposit event
-    event Deposit(address indexed maker, address token, uint256 amount);
+    // Mapping to store orderbooks for each token
+    mapping(address => OrderBook) private sellOrderBooks;
+    mapping(address => OrderBook) private buyOrderBooks;
 
-    // Define Withdraw event
+    // Events
+    event Deposit(address indexed maker, address token, uint256 amount);
     event Withdraw(address indexed maker, address token, uint256 amount);
+    event SetPrice(address indexed maker, address token, uint256 priceSlot);
+    event FillPrice(PoolId poolId, address indexed maker, address token, uint256 fromAmount, uint256 toAmount, bool isBuy);
 
     constructor(address _hookContract) {
         require(_hookContract != address(0), "Hook contract address cannot be zero");
@@ -78,18 +93,122 @@ contract MatchEngine {
     }
 
     // Set price function
-    function setPrice(address token, uint256 priceSlot) public {
-        // TODO: Implement price setting logic
+    function setPrice(address token, uint256 priceSlot) external {
+        uint256 oldPriceSlot = makerInfos[msg.sender].priceSlots[token];
+        makerInfos[msg.sender].priceSlots[token] = priceSlot;
+
+        // Update sell orderbook
+        updateOrderBook(token, oldPriceSlot, priceSlot, true);
+
+        // Update buy orderbook
+        updateOrderBook(token, oldPriceSlot, priceSlot, false);
+
+        emit SetPrice(msg.sender, token, priceSlot);
     }
 
-    // Get price function
-    function getPrice(address token, address maker) public view returns (uint256) {
-        // TODO: Implement price retrieval logic
+    function updateOrderBook(address token, uint256 oldPriceSlot, uint256 newPriceSlot, bool isSell) private {
+        OrderBook storage orderBook = isSell ? sellOrderBooks[token] : buyOrderBooks[token];
+        
+        uint256 oldPrice = isSell ? uint32(oldPriceSlot >> 32) : uint32(oldPriceSlot);
+        uint256 newPrice = isSell ? uint32(newPriceSlot >> 32) : uint32(newPriceSlot);
+        uint256 oldAmount = isSell ? uint64(oldPriceSlot >> 96) : uint64(newPriceSlot >> 128);
+        uint256 newAmount = isSell ? uint64(newPriceSlot >> 96) : uint64(newPriceSlot >> 128);
+
+        // Remove from old price level
+        if (oldAmount > 0) {
+            PriceLevel storage oldLevel = orderBook.levels[oldPrice];
+            oldLevel.totalAmount -= oldAmount;
+            if (oldLevel.totalAmount == 0) {
+                // Remove price level if empty
+                removePrice(orderBook.prices, oldPrice);
+            }
+        }
+
+        // Add to new price level
+        if (newAmount > 0) {
+            PriceLevel storage newLevel = orderBook.levels[newPrice];
+            if (newLevel.totalAmount == 0) {
+                // Add new price level
+                orderBook.prices.push(newPrice);
+                sortPrices(orderBook.prices, isSell);
+            }
+            newLevel.totalAmount += newAmount;
+            newLevel.makers.push(msg.sender);
+        }
+    }
+
+    function removePrice(uint256[] storage prices, uint256 price) private {
+        for (uint i = 0; i < prices.length; i++) {
+            if (prices[i] == price) {
+                prices[i] = prices[prices.length - 1];
+                prices.pop();
+                break;
+            }
+        }
+    }
+
+    function sortPrices(uint256[] storage prices, bool ascending) private {
+        for (uint i = 0; i < prices.length; i++) {
+            for (uint j = i + 1; j < prices.length; j++) {
+                if ((ascending && prices[i] > prices[j]) || (!ascending && prices[i] < prices[j])) {
+                    (prices[i], prices[j]) = (prices[j], prices[i]);
+                }
+            }
+        }
+    }
+
+    struct PoolId {
+        address fromToken;
+        address toToken;
     }
 
     // Fill order function
-    function fillOrder(/* parameters to be determined */) public {
-        // TODO: Implement order filling logic
+    function fillOrder(PoolId calldata poolId, address fromToken, address toToken, uint256 fromAmount) external onlyHook {
+        require(fromAmount > 0, "From amount must be greater than 0");
+
+        bool isBuy = true;
+        OrderBook storage orderBook = buyOrderBooks[toToken];
+
+        uint256 remainingAmount = fromAmount;
+        uint256 totalToAmount = 0;
+
+        for (uint i = 0; i < orderBook.prices.length && remainingAmount > 0; i++) {
+            uint256 price = orderBook.prices[i];
+            PriceLevel storage level = orderBook.levels[price];
+
+            for (uint j = 0; j < level.makers.length && remainingAmount > 0; j++) {
+                address maker = level.makers[j];
+                uint256 makerPriceSlot = makerInfos[maker].priceSlots[toToken];
+                uint256 makerAmount = uint64(makerPriceSlot >> 128);
+                uint256 makerPrice = uint32(makerPriceSlot);
+
+                uint256 fillAmount = remainingAmount > makerAmount ? makerAmount : remainingAmount;
+                uint256 toAmount = (fillAmount * makerPrice) / 1e18; // Assuming 18 decimal places for price
+
+                // Update maker's balance
+                makerInfos[maker].balances[fromToken] += fillAmount;
+                makerInfos[maker].balances[toToken] -= toAmount;
+
+                // Update remaining amount and total to amount
+                remainingAmount -= fillAmount;
+                totalToAmount += toAmount;
+
+                // Emit FillPrice event
+                emit FillPrice(poolId, maker, toToken, fillAmount, toAmount, isBuy);
+
+                // Update orderbook
+                level.totalAmount -= fillAmount;
+                if (level.totalAmount == 0) {
+                    removePrice(orderBook.prices, price);
+                }
+            }
+        }
+
+        require(remainingAmount == 0, "Insufficient liquidity to fill order");
+
+        // Transfer tokens
+        IERC20(fromToken).safeTransferFrom(msg.sender, address(this), fromAmount);
+        IERC20(toToken).safeTransfer(msg.sender, totalToAmount);
     }
 
     // Example of a function that can only be called by the hook contract
