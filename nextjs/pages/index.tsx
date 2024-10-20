@@ -34,6 +34,44 @@ const Home: NextPage = () => {
         <p className="font-mono text-center text-pink-400 max-w-2xl">Aggregator // Order Limit // Tick Mapping</p>
       </div>
       <TimelineDemo />
+
+      <div className="font-mono italic text-neutral-200 flex flex-col items-center justify-center mt-8 mb-16">
+        <p className="text-neutral-200">San Francisco, CA // ETHGlobal Hackathon 2024/10/19</p>
+        <div className="flex justify-center space-x-4 text-sm">
+          <a
+            href="https://github.com/Attens1423"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neutral-400 hover:text-white transition-colors"
+          >
+            @Attens
+          </a>
+          <a
+            href="https://github.com/0xashu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neutral-400 hover:text-white transition-colors"
+          >
+            @Ashu
+          </a>
+          <a
+            href="https://github.com/ShiranZH"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neutral-400 hover:text-white transition-colors"
+          >
+            @Shiran
+          </a>
+          <a
+            href="https://github.com/katherine84522"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neutral-400 hover:text-white transition-colors"
+          >
+            @Katherine
+          </a>
+        </div>
+      </div>
     </div>
   );
 };
