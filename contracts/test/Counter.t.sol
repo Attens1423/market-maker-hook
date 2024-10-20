@@ -36,25 +36,25 @@ contract CounterTest is Test, Deployers {
                 | Hooks.AFTER_ADD_LIQUIDITY_FLAG
         );
         (address hookAddress, bytes32 salt) =
-            HookMiner.find(address(this), flags, type(Counter).creationCode, abi.encode(address(manager)));
+            HookMiner.find(address(this), flags, 132, type(Counter).creationCode, abi.encode(address(manager)));
         counter = new Counter{salt: salt}(IPoolManager(address(manager)));
         require(address(counter) == hookAddress, "CounterTest: hook address mismatch");
 
         // Create the pool
         poolKey = PoolKey(currency0, currency1, 3000, 60, IHooks(counter));
         poolId = poolKey.toId();
-        initializeRouter.initialize(poolKey, Constants.SQRT_RATIO_1_1, ZERO_BYTES);
+        manager.initialize(poolKey, Constants.SQRT_PRICE_1_1);
 
         // Provide liquidity to the pool
         modifyLiquidityRouter.modifyLiquidity(
-            poolKey, IPoolManager.ModifyLiquidityParams(-60, 60, 10 ether), ZERO_BYTES
+            poolKey, IPoolManager.ModifyLiquidityParams(-60, 60, 10 ether, bytes32(0)), ZERO_BYTES
         );
         modifyLiquidityRouter.modifyLiquidity(
-            poolKey, IPoolManager.ModifyLiquidityParams(-120, 120, 10 ether), ZERO_BYTES
+            poolKey, IPoolManager.ModifyLiquidityParams(-120, 120, 10 ether, bytes32(0)), ZERO_BYTES
         );
         modifyLiquidityRouter.modifyLiquidity(
             poolKey,
-            IPoolManager.ModifyLiquidityParams(TickMath.minUsableTick(60), TickMath.maxUsableTick(60), 10 ether),
+            IPoolManager.ModifyLiquidityParams(TickMath.minUsableTick(60), TickMath.maxUsableTick(60), 10 ether, bytes32(0)),
             ZERO_BYTES
         );
     }
@@ -87,11 +87,13 @@ contract CounterTest is Test, Deployers {
         IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
             zeroForOne: zeroForOne,
             amountSpecified: amountSpecified,
-            sqrtPriceLimitX96: zeroForOne ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1 // unlimited impact
+            sqrtPriceLimitX96: zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1 // unlimited impact
         });
 
         PoolSwapTest.TestSettings memory testSettings =
-            PoolSwapTest.TestSettings({withdrawTokens: true, settleUsingTransfer: true, currencyAlreadySent: false});
+            PoolSwapTest.TestSettings({
+                takeClaims: true,
+                settleUsingBurn: false});
 
         swapDelta = swapRouter.swap(key, params, testSettings, hookData);
     }

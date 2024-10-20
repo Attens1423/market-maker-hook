@@ -1,22 +1,23 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
-import {CurrencyLibrary, Currency} from "@uniswap/v4-core/contracts/types/Currency.sol";
-import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/contracts/types/PoolId.sol";
-import {FeeLibrary} from "@uniswap/v4-core/contracts/libraries/FeeLibrary.sol";
-import {Hooks} from "@uniswap/v4-core/contracts/libraries/Hooks.sol";
-import {FullMath} from "@uniswap/v4-core/contracts/libraries/FullMath.sol";
-import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
-import {BalanceDelta} from "@uniswap/v4-core/contracts/types/BalanceDelta.sol";
-import {BaseHook} from "../../BaseHook.sol";
-import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
-import {ILockCallback} from "@uniswap/v4-core/contracts/interfaces/callback/ILockCallback.sol";
-import {IERC20Minimal} from "@uniswap/v4-core/contracts/interfaces/external/IERC20Minimal.sol";
+import {BaseTestHooks} from "@uniswap/v4-core/src/test/BaseTestHooks.sol";
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
+import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
+import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
+import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
+import {BeforeSwapDelta} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
+import {FullMath} from "@uniswap/v4-core/src/libraries/FullMath.sol";
+import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
+import {IERC20Minimal} from "@uniswap/v4-core/src/interfaces/external/IERC20Minimal.sol";
+import {IUnlockCallback} from "@uniswap/v4-core/src/interfaces/callback/IUnlockCallback.sol";
+import {CurrencyLibrary, Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {BaseHook} from "@uniswap/v4-periphery/src/base/hooks/BaseHook.sol";
+import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import "forge-std/Test.sol";
-
-import "../../libraries/LiquidityAmounts.sol";
 
 contract PriceTool {
     uint256 public mockPrice = 0;
@@ -30,12 +31,14 @@ contract PriceTool {
     }
 }
 
-contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
+
+contract MarketMakerHook is BaseHook, Test, PriceTool {
     using CurrencyLibrary for Currency;
     using PoolIdLibrary for PoolKey;
-    using FeeLibrary for uint24;
+    //using FeeLibrary for uint24;
 
     error SenderMustBeHook();
+    error SenderMustBePoolManager();
     error PriceDiffTooLarge();
     // used for single token deposit
     error TickCoverSlot0();
@@ -56,24 +59,40 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
     struct CallbackData {
         address sender;
         PoolKey key;
-        IPoolManager.ModifyPositionParams params;
+        IPoolManager.ModifyLiquidityParams params;
     }
 
-    constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
+    //IPoolManager public immutable poolManager;
 
-    function getHooksCalls() public pure override returns (Hooks.Calls memory) {
-        return Hooks.Calls({
+    modifier poolManagerOnly() {
+        if (msg.sender != address(poolManager)) revert SenderMustBePoolManager();
+        _;
+    }
+
+    constructor(IPoolManager _poolManager) BaseHook(_poolManager){
+        poolManager = _poolManager;
+        Hooks.validateHookPermissions(IHooks(address(this)), getHookPermissions());
+    }
+
+    function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
+        return Hooks.Permissions({
             beforeInitialize: false,
             afterInitialize: false,
-            beforeModifyPosition: true,
-            afterModifyPosition: false,
+            beforeAddLiquidity: true,
+            afterAddLiquidity: false,
+            beforeRemoveLiquidity: false,
+            afterRemoveLiquidity: false,
             beforeSwap: true,
             afterSwap: true,
             beforeDonate: false,
-            afterDonate: false
+            afterDonate: false,
+            beforeSwapReturnDelta: false,
+            afterSwapReturnDelta: false,
+            afterAddLiquidityReturnDelta: false,
+            afterRemoveLiquidityReturnDelta: false
         });
     }
-    
+
     // Only for mocking
     function getMockAmountOut(
         uint256 fromAmount, 
@@ -87,31 +106,31 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
         targetAmount = int256(toAmount);
         // calculate accrute tick
         uint160 midPriceSqrtQ = uint160(FullMath.mulDiv(Math.sqrt(zeroForOneMockPrice), Q96, 10 ** 9));
-        tickLow = TickMath.getTickAtSqrtRatio(midPriceSqrtQ);
+        tickLow = TickMath.getTickAtSqrtPrice(midPriceSqrtQ);
         tickUp = tickLow + 1;
     }
-    
 
     function removeRemainingLiquidity(PoolKey calldata key) public returns(bool){
         console.log("\n========= removeRemainingLiquidity ==========");
         PoolId poolId = key.toId();
-        uint128 liquidity = poolManager.getLiquidity(poolId);
+        uint128 liquidity = StateLibrary.getLiquidity(poolManager, poolId);
         if(liquidity == 0) return true;
 
         _modifyPosition(
             key,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper, 
-                liquidityDelta: -int128(liquidity)
+                liquidityDelta: -int128(liquidity),
+                salt: bytes32(0)
             })
         );
 
-        liquidity = poolManager.getLiquidity(poolId);
+        liquidity = StateLibrary.getLiquidity(poolManager, poolId);
         console.log();
         console.log("after remove liq:", liquidity);
 
-        (, int24 tick,,) = poolManager.getSlot0(poolId);
+        (, int24 tick,,) = StateLibrary.getSlot0(poolManager, poolId);
         console2.log("after remove tick:", tick);
         return true;
     }
@@ -119,15 +138,15 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
     // ------------ IHook ----------------
 
     // prevent user fill liquidity
-    function beforeModifyPosition(
+    function beforeAddLiquidity(
         address sender,
         PoolKey calldata,
-        IPoolManager.ModifyPositionParams calldata,
+        IPoolManager.ModifyLiquidityParams calldata,
         bytes calldata
     ) external view override returns (bytes4) {
         if (sender != address(this)) revert SenderMustBeHook();
 
-        return AggregatorHook.beforeModifyPosition.selector;
+        return MarketMakerHook.beforeAddLiquidity.selector;
     }
 
     // Add liquidity into pool before swap
@@ -135,11 +154,11 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
         external
         override
         poolManagerOnly
-        returns (bytes4)
+        returns (bytes4, BeforeSwapDelta, uint24)
     {
         PoolId poolId = key.toId();
-        address token0 = Currency.unwrap(key.currency0);
-        address token1 = Currency.unwrap(key.currency1);
+        //address token0 = Currency.unwrap(key.currency0);
+        //address token1 = Currency.unwrap(key.currency1);
 
         // before start, remove liquidity last time left
         removeRemainingLiquidity(key);
@@ -147,15 +166,15 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
 
         // begin new swap
         uint256 fromAmount = uint256(swapData.amountSpecified);// decode swapParam
-        bool zeroForOne = swapData.zeroForOne;
+        //bool zeroForOne = swapData.zeroForOne;
         uint256 toAmount;
 
         // query getAmountOut to generate fixed price
-        (toAmount, tickUpper, tickLower) = getMockAmountOut(fromAmount, zeroForOne);
+        (toAmount, tickUpper, tickLower) = getMockAmountOut(fromAmount, swapData.zeroForOne);
 
-        (, int24 tick0,,) = poolManager.getSlot0(poolId);
-        if(!zeroForOne && tickLower <= tick0) revert TradeDirectionError();
-        if(zeroForOne && tickUpper >= tick0) revert TradeDirectionError();
+        (, int24 tick0,,) = StateLibrary.getSlot0(poolManager, poolId);
+        if(!swapData.zeroForOne && tickLower <= tick0) revert TradeDirectionError();
+        if(swapData.zeroForOne && tickUpper >= tick0) revert TradeDirectionError();
         
         {
         
@@ -166,43 +185,49 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
         console2.log("tickUpper", tickUpper);
         console2.log("slot0 tick:", tick0);
         }
+        
 
         // if zeroForOne, tick go up, from tickUpper to tickLower
         // if not, tick go down, from tickLower to tickUpper
-        int24 calTick = zeroForOne ? tickUpper : tickLower;      
-        uint128 liquidity = _calJITLiquidity(calTick, fromAmount, toAmount, zeroForOne);
+           
+        uint128 liquidity;
 
+        {
+        int24 calTick = swapData.zeroForOne ? tickUpper : tickLower;   
+        liquidity = _calJITLiquidity(calTick, fromAmount, toAmount, swapData.zeroForOne);
         // tick correct
-        if(zeroForOne == false) {
+        if(swapData.zeroForOne == false) {
             int24 limitTick = tickUpper;
-            uint256 priceNext = fromAmount * Q96 / liquidity + TickMath.getSqrtRatioAtTick(calTick);
-            uint256 priceLimit = uint256(TickMath.getSqrtRatioAtTick(limitTick));
+            uint256 priceNext = fromAmount * Q96 / liquidity + TickMath.getSqrtPriceAtTick(calTick);
+            uint256 priceLimit = uint256(TickMath.getSqrtPriceAtTick(limitTick));
             if(priceNext > priceLimit) {
                 tickUpper = tickLower + 2;
             }       
         } else {
             int24 limitTick = tickLower ;
-            uint256 sqrtPCal = uint256(TickMath.getSqrtRatioAtTick(calTick));
+            uint256 sqrtPCal = uint256(TickMath.getSqrtPriceAtTick(calTick));
             uint256 priceNext = (liquidity * sqrtPCal) / (liquidity + sqrtPCal / Q96 * fromAmount);
-            uint256 priceLimit = uint256(TickMath.getSqrtRatioAtTick(limitTick));
+            uint256 priceLimit = uint256(TickMath.getSqrtPriceAtTick(limitTick));
             if(priceNext > priceLimit) {
                 tickLower --;
             }
         }
+        }
 
         BalanceDelta delta = _modifyPosition(
             key,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
-                liquidityDelta: int128(liquidity)
+                liquidityDelta: int128(liquidity),
+                salt: bytes32(0)
             })
         );
 
-        depositedInPoolManager[token0] = uint128(delta.amount0());
-        depositedInPoolManager[token1] = uint128(delta.amount1());
+        depositedInPoolManager[Currency.unwrap(key.currency0)] = uint128(delta.amount0());
+        depositedInPoolManager[Currency.unwrap(key.currency1)] = uint128(delta.amount1());
 
-        return AggregatorHook.beforeSwap.selector;
+        return (MarketMakerHook.beforeSwap.selector, BeforeSwapDelta.wrap(0), 0);
     }
 
     /// @notice since user transfer in after the whole swap in PoolSwapTest.sol, 
@@ -215,13 +240,13 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
         IPoolManager.SwapParams calldata,
         BalanceDelta delta,
         bytes calldata
-    ) external override poolManagerOnly returns (bytes4) {
+    ) external override poolManagerOnly returns (bytes4, int128) {
         PoolId poolId = key.toId();
-        uint128 liquidity = poolManager.getLiquidity(poolId);
+        uint128 liquidity = StateLibrary.getLiquidity(poolManager, poolId);
 
-        (, int24 tick,,) = poolManager.getSlot0(poolId);
+        (, int24 tick,,) = StateLibrary.getSlot0(poolManager, poolId);
 
-        uint24 fee = key.fee.getStaticFee();
+        //uint24 fee = key.fee.getStaticFee();
         console.log("\nafterSwap");
         console2.log("target amount:", targetAmount);
         console2.log("delta amount1:", delta.amount1());
@@ -241,31 +266,30 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
         if(uint256(priceDiff >= 0 ? priceDiff : -priceDiff) > 1e12) revert PriceDiffTooLarge();
 
         
-        uint128 tickliquidity = poolManager.getLiquidity(poolId);
+        uint128 tickliquidity = StateLibrary.getLiquidity(poolManager, poolId);
         console.log("all liquidity:", tickliquidity);
         
-        return AggregatorHook.afterSwap.selector;
+        return (MarketMakerHook.afterSwap.selector, 0);
     }
 
     // -------------- ILockCallback ----------------
 
     function lockAcquired(bytes calldata rawData)
         external
-        override(ILockCallback, BaseHook)
-        poolManagerOnly
+        selfOnly
         returns (bytes memory)
     {
         CallbackData memory data = abi.decode(rawData, (CallbackData));
         BalanceDelta delta;
 
         if (data.params.liquidityDelta <= 0) { //must contain 0
-            delta = poolManager.modifyPosition(data.key, data.params, ZERO_BYTES);
+            (delta, ) = poolManager.modifyLiquidity(data.key, data.params, ZERO_BYTES);
             console.log("\ntake deltas");
             console2.log("delta amount0", delta.amount0());
             console2.log("delta amount1", delta.amount1());
             _takeDeltas(data.key, delta);
         } else {
-            delta = poolManager.modifyPosition(data.key, data.params, ZERO_BYTES);
+            (delta, ) = poolManager.modifyLiquidity(data.key, data.params, ZERO_BYTES);
             console.log("\nsettle deltas");
             console2.log("delta amount0", delta.amount0());
             console2.log("delta amount1", delta.amount1());
@@ -277,7 +301,7 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
     // -------------- Internal Functions --------------
 
     function _calJITLiquidity(int24 curTick, uint256 fromAmount, uint256 toAmount, bool zeroForOne) internal view returns(uint128 liquidity) {
-        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(curTick);
+        uint160 sqrtPriceX96 = TickMath.getSqrtPriceAtTick(curTick);
         if(zeroForOne) {
             uint256 tmp1 = fromAmount * uint256(sqrtPriceX96) / Q96 *uint256(sqrtPriceX96) / Q96- toAmount;
             uint256 tmp2 = fromAmount * uint256(sqrtPriceX96) * toAmount / Q96;
@@ -289,11 +313,11 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
         }
     }
 
-    function _modifyPosition(PoolKey memory key, IPoolManager.ModifyPositionParams memory params)
+    function _modifyPosition(PoolKey memory key, IPoolManager.ModifyLiquidityParams memory params)
         internal
         returns (BalanceDelta delta)
     {
-        delta = abi.decode(poolManager.lock(abi.encode(CallbackData(msg.sender, key, params))), (BalanceDelta));
+        delta = abi.decode(poolManager.unlock(abi.encode(CallbackData(msg.sender, key, params))), (BalanceDelta));
     }
 
     function _settleDeltas(PoolKey memory key, BalanceDelta delta) internal {
@@ -302,11 +326,13 @@ contract AggregatorHook is BaseHook, PriceTool, ILockCallback {
     }
 
     function _settleDelta(Currency currency, uint128 amount) internal {
-        if (currency.isNative()) {
-            poolManager.settle{value: amount}(currency);
+        if (currency.isAddressZero()) {
+            poolManager.sync(currency);
+            poolManager.settle{value: amount}();
         } else {
             currency.transfer(address(poolManager), amount);
-            poolManager.settle(currency);
+            poolManager.sync(currency);
+            poolManager.settle();
         }
     }
 

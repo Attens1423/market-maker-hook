@@ -8,6 +8,7 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
+import {BeforeSwapDelta} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
 
 contract Counter is BaseTestHooks {
     using PoolIdLibrary for PoolKey;
@@ -42,8 +43,10 @@ contract Counter is BaseTestHooks {
             afterSwap: true,
             beforeDonate: false,
             afterDonate: false,
-            noOp: false,
-            accessLock: false
+            beforeSwapReturnDelta: false,
+            afterSwapReturnDelta: false,
+            afterAddLiquidityReturnDelta: false,
+            afterRemoveLiquidityReturnDelta: false
         });
     }
 
@@ -54,19 +57,19 @@ contract Counter is BaseTestHooks {
     function beforeSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, bytes calldata)
         external
         override
-        returns (bytes4)
+        returns (bytes4, BeforeSwapDelta, uint24)
     {
         beforeSwapCount[key.toId()]++;
-        return BaseTestHooks.beforeSwap.selector;
+        return (BaseTestHooks.beforeSwap.selector, BeforeSwapDelta.wrap(0), 0);
     }
 
     function afterSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, BalanceDelta, bytes calldata)
         external
         override
-        returns (bytes4)
+        returns (bytes4, int128)
     {
         afterSwapCount[key.toId()]++;
-        return BaseTestHooks.afterSwap.selector;
+        return (BaseTestHooks.afterSwap.selector, 0);
     }
 
     function beforeAddLiquidity(
@@ -84,9 +87,10 @@ contract Counter is BaseTestHooks {
         PoolKey calldata key,
         IPoolManager.ModifyLiquidityParams calldata,
         BalanceDelta,
+        BalanceDelta,
         bytes calldata
-    ) external override returns (bytes4) {
+    ) external override returns (bytes4, BalanceDelta) {
         afterAddLiquidityCount[key.toId()]++;
-        return BaseTestHooks.afterAddLiquidity.selector;
+        return (BaseTestHooks.afterAddLiquidity.selector, BalanceDelta.wrap(0));
     }
 }

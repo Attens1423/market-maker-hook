@@ -2,8 +2,9 @@
 @openzeppelin/=contracts/lib/v4-core/lib/openzeppelin-contracts/
 ds-test/=contracts/lib/forge-std/lib/ds-test/src/
 forge-gas-snapshot/=contracts/lib/v4-core/lib/forge-gas-snapshot/src/
-forge-std/=contracts/lib/forge-std/src/
+forge-std/=contracts/lib/v4-core/lib/forge-std/src/
 hardhat/=contracts/lib/v4-core/node_modules/hardhat/
 openzeppelin-contracts/=contracts/lib/v4-core/lib/openzeppelin-contracts/contracts/
-solmate/=contracts/lib/v4-core/lib/solmate/src/
+solmate/=contracts/lib/v4-core/lib/solmate/
 @uniswap/v4-core/=contracts/lib/v4-core/
+@uniswap/v4-periphery/=contracts/lib/v4-periphery/
